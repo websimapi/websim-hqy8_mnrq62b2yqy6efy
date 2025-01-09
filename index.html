@@ -1,0 +1,1475 @@
+<html><head><base href=".">
+  <meta charset="UTF-8">
+  <title>3D Grid MMORPG Level Editor</title>
+  <style>
+    body { 
+      margin: 0; 
+      background: #1a1a1a; 
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    #editor-container {
+      height: 100vh;
+      width: 100vw;
+      position: relative;
+      overflow: hidden;
+    }
+    #toolbar {
+      width: 300px;
+      max-width: 300px;
+      background: rgba(51, 51, 51, 0.9);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      overflow-y: auto;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      z-index: 1000;
+      transform: translateX(0);
+      transition: transform 0.3s ease;
+    }
+    #toolbar.hidden {
+      transform: translateX(-100%);
+    }
+    #grid-container {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #toggle-menu {
+      position: fixed;
+      top: 10px;
+      left: 310px;
+      z-index: 1001;
+      background: rgba(51, 51, 51, 0.9);
+      border: none;
+      color: white;
+      padding: 10px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: left 0.3s ease;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #toggle-menu.menu-hidden {
+      left: 10px;
+    }
+    .asset-item {
+      padding: 10px;
+      background: #444;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      word-break: break-word;
+      position: relative;
+      padding-right: 30px; /* Space for delete button */
+    }
+    .asset-item.selected-asset {
+      background-color: #666;
+    }
+    .asset-preview {
+      display: none;
+      width: 100%;
+      height: 200px;
+      background: #222;
+      margin-top: 10px;
+      border-radius: 4px;
+      position: relative;
+    }
+    .asset-item.expanded .asset-preview {
+      display: block;
+    }
+    .asset-controls {
+      padding: 10px;
+    }
+    .tool-button {
+      padding: 10px;
+      background: #444;
+      border: none;
+      color: white;
+      cursor: pointer;
+      border-radius: 4px;
+      margin-right: 5px;
+      margin-top: 5px;
+    }
+    .tool-button:hover {
+      background: #555;
+    }
+    .tool-button.active {
+      background: #666;
+      border: 2px solid #88f;
+    }
+    .tool-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #debug-console {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      border: 1px solid #00ff00;
+      padding: 20px;
+      width: 600px;
+      height: 400px;
+      display: none;
+      z-index: 2000;
+      font-family: monospace;
+      color: #00ff00;
+      overflow: auto;
+    }
+    #debug-console.visible {
+      display: block;
+    }
+    #debug-content {
+      white-space: pre-wrap;
+      font-size: 12px;
+    }
+    .debug-header {
+      color: #00ff00;
+      border-bottom: 1px solid #00ff00;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+    }
+    .menu-arrow {
+      width: 20px;
+      height: 20px;
+      transition: transform 0.3s ease;
+    }
+    .menu-arrow.collapsed {
+      transform: rotate(180deg);
+    }
+    .rotation-ui {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      margin-top: 5px;
+    }
+    .rotation-button {
+      width: 24px;
+      height: 24px;
+      background: #444;
+      border: 1px solid #555;
+      border-radius: 4px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .rotation-button:hover {
+      background: #555;
+    }
+    .arrow-icon {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      transform-origin: center;
+    }
+    #action-history {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    #action-history div {
+      padding: 5px;
+      background: #333;
+      margin-bottom: 5px;
+      border-radius: 4px;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .delete-asset-btn {
+      position: absolute;
+      right: 5px;
+      top: 5px;
+      background: #ff4444;
+      border: none;
+      color: white;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      padding: 0;
+    }
+
+    .delete-asset-btn:hover {
+      background: #ff0000;
+    }
+
+    .asset-name {
+      padding-right: 25px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: grab;
+      padding: 3px 5px;
+      background: #444;
+      border-radius: 4px;
+      margin: 5px 0;
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .section-header h3 {
+      margin: 0;
+      font-size: 12px;
+    }
+
+    .section-header:hover {
+      background: #555;
+    }
+
+    .section-content {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 0 5px;
+      margin: 0 -5px;
+      scrollbar-width: thin;
+      scrollbar-color: #666 #333;
+      display: none;
+    }
+
+    .section-content.expanded {
+      display: block;
+    }
+
+    .section-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .section-content::-webkit-scrollbar-track {
+      background: #333;
+    }
+
+    .section-content::-webkit-scrollbar-thumb {
+      background-color: #666;
+      border-radius: 4px;
+    }
+
+    .toolbar-section {
+      position: relative;
+      transition: transform 0.2s ease, background-color 0.2s ease;
+      z-index: 1;
+      border-radius: 4px;
+      margin: 2px 0;
+    }
+
+    .toolbar-section.dragging {
+      position: fixed;
+      width: 280px;
+      z-index: 1002;
+      pointer-events: none;
+    }
+
+    .toolbar-section.drop-target {
+      position: relative;
+      margin-top: 20px;
+      margin-bottom: 20px;
+      transition: margin 0.2s ease;
+    }
+
+    .block-settings {
+      padding: 10px;
+      background: #444;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+
+    .block-settings input[type="color"] {
+      width: 100%;
+      height: 40px;
+      margin: 5px 0;
+    }
+
+    .block-item {
+      padding: 10px;
+      background: #444;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .block-item.selected-block {
+      background-color: #666;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+  <div id="editor-container">
+    <div id="toolbar">
+      <h2>Level Editor</h2>
+      
+      <div class="section-header">
+        <h3>Tools</h3>
+        <button class="section-toggle">&#x25bc;</button>
+      </div>
+      <div class="section-content expanded">
+        <button class="tool-button" id="place-block">Place Block</button>
+        <button class="tool-button" id="remove-block">Remove Block</button>
+        <button class="tool-button" id="export-json">Export JSON</button>
+        <input type="file" id="import-input" accept=".json" style="display: none;">
+        <button class="tool-button" id="import-json">Import JSON</button>
+        <button class="tool-button" id="undo-action">Undo</button>
+        <button class="tool-button" id="redo-action" disabled>Redo</button>
+      </div>
+
+      <div class="section-header">
+        <h3>Grid Size: 32x32</h3>
+        <button class="section-toggle">&#x25bc;</button>
+      </div>
+      <div class="section-content expanded">
+        <div class="block-settings">
+          <label>Block Color</label>
+          <input type="color" id="block-color" value="#8888ff">
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h3>Asset Library</h3>
+        <button class="section-toggle">&#x25bc;</button>
+      </div>
+      <div class="section-content expanded">
+        <input type="file" id="model-input" accept=".gltf,.glb" style="display: none;">
+        <button class="tool-button" id="load-model">Load 3D Model</button>
+        <div id="asset-list">
+          <!-- Assets will be added here dynamically -->
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h3>Placed Assets</h3>
+        <button class="section-toggle">&#x25bc;</button>
+      </div>
+      <div class="section-content expanded">
+        <div id="placed-assets-list">
+          <!-- Placed assets will be listed here -->
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h3>Placed Blocks</h3>
+        <button class="section-toggle">&#x25bc;</button>
+      </div>
+      <div class="section-content expanded">
+        <div id="placed-blocks-list">
+          <!-- Placed blocks will be listed here -->
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h3>Action History</h3>
+        <button class="section-toggle">&#x25bc;</button>
+      </div>
+      <div class="section-content expanded">
+        <div id="action-history">
+          <!-- Actions will be listed here -->
+        </div>
+      </div>
+    </div>
+    <div id="grid-container">
+    </div>
+    <button id="toggle-menu">
+      <svg class="menu-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+    </button>
+  </div>
+
+  <div id="debug-console">
+    <h3 class="debug-header">Debug Console</h3>
+    <div id="debug-content"></div>
+  </div>
+
+  <script>let scene, camera, renderer, controls;
+let raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+let gridBlocks = {};
+let placementPreview;
+let groundPlane;
+let loadedModels = [];
+let selectedModel = null;
+let modelPreview = null;
+let placedAssets = [];
+let selectedPlacedAsset = null;
+let assetIdCounter = 0;
+let selectedBlock = null;
+const loader = new THREE.GLTFLoader();
+let actionHistory = [];
+let redoHistory = [];
+const MAX_REDO_HISTORY = 100;
+let actionHistoryUI = document.getElementById('action-history');
+let debugInfo = {
+  mousePosition: {
+    x: 0,
+    y: 0
+  },
+  normalizedMouse: {
+    x: 0,
+    y: 0
+  },
+  raycastHit: null,
+  gridPosition: null,
+  cameraPosition: null,
+  lastAction: null
+};
+let draggingSectionHeader = null;
+let sections = [];
+let dragStartY = 0;
+let initialBlockColor = null;
+async function exportLevel() {
+  const levelData = {
+    blocks: Object.keys(gridBlocks).map(key => {
+      const [x, y, z] = key.split(',').map(Number);
+      const block = gridBlocks[key];
+      return {
+        x,
+        y,
+        z,
+        color: block.material.color.getHexString()
+      };
+    }),
+    assets: placedAssets.map(asset => {
+      return {
+        id: asset.id,
+        url: asset.url,
+        name: asset.name,
+        position: {
+          x: asset.model.position.x,
+          y: asset.model.position.y,
+          z: asset.model.position.z
+        },
+        rotation: {
+          x: asset.model.rotation.x,
+          y: asset.model.rotation.y,
+          z: asset.model.rotation.z
+        },
+        scale: {
+          x: asset.model.scale.x,
+          y: asset.model.scale.y,
+          z: asset.model.scale.z
+        }
+      };
+    }),
+    assetLibrary: loadedModels.map(model => {
+      return {
+        url: model.url,
+        name: model.name
+      };
+    }),
+    actionHistory: actionHistory
+  };
+  const blob = new Blob([JSON.stringify(levelData, null, 2)], {
+    type: 'application/json'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'level.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  debugInfo.lastAction = `Exported Level - Blocks: ${levelData.blocks.length}, Assets: ${levelData.assets.length}, Asset Library: ${levelData.assetLibrary.length}, Action History Included: true`;
+  addActionToHistory(debugInfo.lastAction);
+  updateDebugInfo();
+}
+function importLevel(file) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const levelData = JSON.parse(e.target.result);
+      Object.keys(gridBlocks).forEach(key => removeBlock(key));
+      gridBlocks = {};
+      placedAssets.forEach(asset => {
+        scene.remove(asset.model);
+      });
+      placedAssets = [];
+      document.getElementById('placed-assets-list').innerHTML = '';
+      loadedModels = [];
+      document.getElementById('asset-list').innerHTML = '';
+      levelData.assetLibrary.forEach(asset => {
+        loadModelFromURL(asset.url, asset.name);
+      });
+      levelData.blocks.forEach(block => {
+        const key = `${block.x},${block.y},${block.z}`;
+        const newBlock = addBlock(new THREE.Vector3(block.x, block.y, block.z));
+        if (block.color) {
+          newBlock.material.color.set('#' + block.color);
+        }
+        gridBlocks[key] = newBlock;
+      });
+      updateBlocksList();
+      let maxAssetId = -1;
+      levelData.assets.forEach(assetData => {
+        loader.load(assetData.url, gltf => {
+          const model = gltf.scene;
+          model.position.set(assetData.position.x, assetData.position.y, assetData.position.z);
+          model.rotation.set(assetData.rotation.x, assetData.rotation.y, assetData.rotation.z);
+          model.scale.set(assetData.scale.x, assetData.scale.y, assetData.scale.z);
+          model.userData.url = assetData.url;
+          model.userData.name = assetData.name;
+          scene.add(model);
+          const assetId = assetData.id;
+          const asset = {
+            id: assetId,
+            model: model,
+            position: model.position.clone(),
+            url: assetData.url,
+            name: assetData.name
+          };
+          placedAssets.push(asset);
+          addPlacedAssetToList(asset);
+        }, undefined, error => {
+          console.error('Error loading asset:', error);
+          debugInfo.lastAction = `Error loading asset: ${error.message}`;
+          addActionToHistory(debugInfo.lastAction);
+          updateDebugInfo();
+        });
+        if (assetData.id > maxAssetId) {
+          maxAssetId = assetData.id;
+        }
+      });
+      assetIdCounter = maxAssetId + 1;
+      if (levelData.actionHistory && Array.isArray(levelData.actionHistory)) {
+        actionHistory = levelData.actionHistory;
+        actionHistoryUI.innerHTML = '';
+        actionHistory.forEach(action => {
+          const actionItem = document.createElement('div');
+          actionItem.textContent = action.description;
+          actionHistoryUI.appendChild(actionItem);
+        });
+      } else {
+        actionHistory = [];
+        actionHistoryUI.innerHTML = '';
+      }
+      debugInfo.lastAction = `Imported Level - Blocks: ${levelData.blocks.length}, Assets: ${levelData.assets.length}, Asset Library: ${levelData.assetLibrary.length}, Action History Loaded: ${levelData.actionHistory ? 'Yes' : 'No'}`;
+      addActionToHistory(debugInfo.lastAction);
+      updateDebugInfo();
+    } catch (error) {
+      console.error('Error importing level:', error);
+      debugInfo.lastAction = `Error importing level: ${error.message}`;
+      addActionToHistory(debugInfo.lastAction);
+      updateDebugInfo();
+    }
+  };
+  reader.readAsText(file);
+}
+async function loadModel(file) {
+  try {
+    const url = await websim.upload(file);
+    const name = file.name;
+    loadModelFromURL(url, name);
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    debugInfo.lastAction = `Error uploading model: ${error.message}`;
+    addActionToHistory(debugInfo.lastAction);
+    updateDebugInfo();
+  }
+}
+function loadModelFromURL(url, name) {
+  loader.load(url, gltf => {
+    const model = gltf.scene;
+    model.userData.yOffset = new THREE.Box3().setFromObject(model).min.y;
+    model.userData.url = url;
+    model.userData.name = name;
+    const assetItem = createAssetItem(model, url, name);
+    document.getElementById('asset-list').appendChild(assetItem);
+    loadedModels.push({
+      model: model,
+      preview: assetItem.querySelector('.asset-preview'),
+      url: url,
+      name: name
+    });
+    debugInfo.lastAction = `Loaded model: ${name}`;
+    addActionToHistory(debugInfo.lastAction);
+    updateDebugInfo();
+  }, undefined, error => {
+    console.error(error);
+    debugInfo.lastAction = `Error loading model: ${error.message}`;
+    addActionToHistory(debugInfo.lastAction);
+    updateDebugInfo();
+  });
+}
+function createAssetItem(model, url, name) {
+  const assetItem = document.createElement('div');
+  assetItem.className = 'asset-item';
+  assetItem.innerHTML = `
+        <div class="asset-name">${name}</div>
+      `;
+  assetItem.addEventListener('click', () => {
+    if (modelPreview) {
+      scene.remove(modelPreview);
+      modelPreview = null;
+    }
+    selectedModel = model;
+    placementPreview.visible = false;
+    document.querySelectorAll('.tool-button').forEach(b => b.classList.remove('active'));
+    document.getElementById('place-block').classList.add('active');
+    if (selectedModel) {
+      if (!modelPreview) {
+        modelPreview = selectedModel.clone();
+        modelPreview.traverse(child => {
+          if (child.material) {
+            child.material = child.material.clone();
+            child.material.transparent = true;
+            child.material.opacity = 0.5;
+          }
+        });
+        scene.add(modelPreview);
+      }
+    }
+  });
+  return assetItem;
+}
+function addPlacedAssetToList(assetData) {
+  const placedAssetsList = document.getElementById('placed-assets-list');
+  const assetItem = document.createElement('div');
+  assetItem.className = 'asset-item';
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'delete-asset-btn';
+  deleteBtn.innerHTML = '×';
+  deleteBtn.onclick = e => {
+    e.stopPropagation();
+    deletePlacedAsset(assetData.id, true);
+  };
+  assetItem.innerHTML = `
+    <div class="asset-name">${assetData.name} (ID: ${assetData.id})</div>
+  `;
+  assetItem.appendChild(deleteBtn);
+  placedAssetsList.appendChild(assetItem);
+  assetItem.querySelector('.asset-name').addEventListener('click', () => {
+    selectPlacedAsset(assetData.id);
+  });
+  assetData.assetItem = assetItem;
+}
+function getPlacedAssetById(assetId) {
+  return placedAssets.find(asset => asset.id === assetId);
+}
+function selectPlacedAsset(assetId) {
+  const asset = getPlacedAssetById(assetId);
+  if (asset) {
+    if (selectedPlacedAsset) {
+      deselectPlacedAsset();
+    }
+    selectedPlacedAsset = asset;
+    const helper = new THREE.BoxHelper(asset.model, 0xffff00);
+    helper.name = 'selectionHelper';
+    scene.add(helper);
+    asset.helper = helper;
+    asset.assetItem.classList.add('selected-asset');
+    showRotationUI(asset);
+  }
+}
+function deselectPlacedAsset() {
+  if (selectedPlacedAsset) {
+    if (selectedPlacedAsset.helper) {
+      scene.remove(selectedPlacedAsset.helper);
+      selectedPlacedAsset.helper = null;
+    }
+    hideRotationUI(selectedPlacedAsset);
+    selectedPlacedAsset.assetItem.classList.remove('selected-asset');
+    selectedPlacedAsset = null;
+  }
+}
+function showRotationUI(asset) {
+  const rotationUI = document.createElement('div');
+  rotationUI.className = 'rotation-ui';
+  const angles = [0, 45, 90, 135, 180, 225, 270, 315];
+  angles.forEach(angle => {
+    const button = document.createElement('button');
+    button.className = 'rotation-button';
+    button.innerHTML = getArrowIcon(angle);
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      rotatePlacedAssetToAngle(asset.id, angle);
+    });
+    rotationUI.appendChild(button);
+  });
+  asset.assetItem.appendChild(rotationUI);
+  asset.rotationUI = rotationUI;
+}
+function hideRotationUI(asset) {
+  if (asset.rotationUI) {
+    asset.assetItem.removeChild(asset.rotationUI);
+    asset.rotationUI = null;
+  }
+}
+function getArrowIcon(angle) {
+  return `<span class="arrow-icon" style="transform: rotate(${angle}deg);">&#9650;</span>`;
+}
+function rotatePlacedAssetToAngle(assetId, angle) {
+  const asset = getPlacedAssetById(assetId);
+  if (asset) {
+    const previousRotation = asset.model.rotation.y;
+    asset.model.rotation.y = THREE.Math.degToRad(angle);
+    if (asset.helper) {
+      asset.helper.update();
+    }
+    debugInfo.lastAction = `Rotated asset ${assetId} to ${angle} degrees`;
+    addActionToHistory(debugInfo.lastAction, {
+      type: 'rotateAsset',
+      assetId: assetId,
+      previousRotation: previousRotation,
+      newRotation: asset.model.rotation.y
+    });
+    updateDebugInfo();
+  }
+}
+function deletePlacedAsset(assetId, recordAction = true) {
+  const asset = getPlacedAssetById(assetId);
+  if (asset) {
+    if (asset.helper) {
+      scene.remove(asset.helper);
+    }
+    scene.remove(asset.model);
+    asset.assetItem.parentNode.removeChild(asset.assetItem);
+    const index = placedAssets.findIndex(a => a.id === assetId);
+    if (index !== -1) {
+      placedAssets.splice(index, 1);
+    }
+    if (selectedPlacedAsset && selectedPlacedAsset.id === assetId) {
+      deselectPlacedAsset();
+    }
+    debugInfo.lastAction = `Deleted asset ${assetId}`;
+    if (recordAction) {
+      addActionToHistory(debugInfo.lastAction, {
+        type: 'deleteAsset',
+        assetData: {
+          id: asset.id,
+          url: asset.url,
+          name: asset.name,
+          position: {
+            x: asset.model.position.x,
+            y: asset.model.position.y,
+            z: asset.model.position.z
+          },
+          rotation: {
+            x: asset.model.rotation.x,
+            y: asset.model.rotation.y,
+            z: asset.model.rotation.z
+          },
+          scale: {
+            x: asset.model.scale.x,
+            y: asset.model.scale.y,
+            z: asset.model.scale.z
+          }
+        }
+      });
+    }
+    updateDebugInfo();
+  }
+}
+function init() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
+  });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.getElementById('grid-container').appendChild(renderer.domElement);
+  camera.position.set(0, 32, 32);
+  camera.lookAt(new THREE.Vector3(0, 0, 0));
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  const groundGeometry = new THREE.PlaneGeometry(32, 32);
+  const groundMaterial = new THREE.MeshBasicMaterial({
+    visible: false,
+    side: THREE.DoubleSide
+  });
+  groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+  groundPlane.rotation.x = -Math.PI / 2;
+  groundPlane.position.set(0, 0, 0);
+  scene.add(groundPlane);
+  const gridHelper = new THREE.GridHelper(32, 32);
+  gridHelper.position.set(0, 0, 0);
+  scene.add(gridHelper);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(10, 20, 10);
+  scene.add(directionalLight);
+  const previewGeometry = new THREE.BoxGeometry(1, 0.5, 1);
+  const previewMaterial = new THREE.MeshBasicMaterial({
+    color: 0x00ff00,
+    transparent: true,
+    opacity: 0.5,
+    wireframe: true
+  });
+  placementPreview = new THREE.Mesh(previewGeometry, previewMaterial);
+  placementPreview.visible = false;
+  scene.add(placementPreview);
+  renderer.domElement.addEventListener('mousemove', onMouseMove);
+  renderer.domElement.addEventListener('click', onMouseClick);
+  window.addEventListener('resize', onWindowResize);
+  document.getElementById('block-color').addEventListener('change', e => {
+    if (selectedBlock) {
+      selectedBlock.material.color.set(e.target.value);
+    }
+  });
+  document.querySelectorAll('.section-header').forEach(header => {
+    header.addEventListener('click', e => {
+      if (e.target.classList.contains('section-toggle')) {
+        const content = header.nextElementSibling;
+        const toggle = header.querySelector('.section-toggle');
+        content.classList.toggle('expanded');
+        toggle.classList.toggle('expanded');
+        e.stopPropagation();
+      }
+    });
+  });
+  initDraggableSections();
+}
+function getGridPosition(point) {
+  return {
+    x: Math.floor(point.x),
+    z: Math.floor(point.z)
+  };
+}
+function getHighestBlockAt(x, z) {
+  let maxY = -0.5;
+  for (let key in gridBlocks) {
+    const [bx, by, bz] = key.split(',').map(Number);
+    if (bx === x && bz === z) {
+      maxY = Math.max(maxY, by);
+    }
+  }
+  placedAssets.forEach(asset => {
+    const pos = asset.model.position;
+    if (Math.floor(pos.x - 0.5) === x && Math.floor(pos.z - 0.5) === z) {
+      maxY = Math.max(maxY, pos.y);
+    }
+  });
+  return maxY;
+}
+function updateDebugInfo() {
+  const content = document.getElementById('debug-content');
+  content.innerHTML = `Mouse Position (screen): ${debugInfo.mousePosition.x}, ${debugInfo.mousePosition.y}
+Normalized Mouse: ${debugInfo.normalizedMouse.x.toFixed(3)}, ${debugInfo.normalizedMouse.y.toFixed(3)}
+Camera Position: ${JSON.stringify(debugInfo.cameraPosition)}
+Raycast Hit: ${debugInfo.raycastHit ? 'Yes' : 'No'}
+${debugInfo.raycastHit ? `Hit Position: ${JSON.stringify(debugInfo.raycastHit)}` : ''}
+Grid Position: ${JSON.stringify(debugInfo.gridPosition)}
+Last Action: ${debugInfo.lastAction || 'None'}
+Active Blocks: ${Object.keys(gridBlocks).length}
+Active Assets: ${placedAssets.length}
+Block Positions: ${JSON.stringify(Object.keys(gridBlocks), null, 2)}`;
+}
+function onMouseMove(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  debugInfo.mousePosition = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  };
+  mouse.x = (event.clientX - rect.left) / rect.width * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  debugInfo.normalizedMouse = {
+    x: mouse.x,
+    y: mouse.y
+  };
+  debugInfo.cameraPosition = {
+    x: camera.position.x.toFixed(2),
+    y: camera.position.y.toFixed(2),
+    z: camera.position.z.toFixed(2)
+  };
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects([groundPlane, ...Object.values(gridBlocks)], true);
+  if (intersects.length > 0) {
+    const intersect = intersects[0];
+    debugInfo.raycastHit = {
+      point: {
+        x: intersect.point.x.toFixed(2),
+        y: intersect.point.y.toFixed(2),
+        z: intersect.point.z.toFixed(2)
+      }
+    };
+    const gridPos = getGridPosition(intersect.point);
+    debugInfo.gridPosition = gridPos;
+    const highestY = getHighestBlockAt(gridPos.x, gridPos.z);
+    if (document.getElementById('place-block').classList.contains('active')) {
+      if (selectedModel) {
+        if (!modelPreview) {
+          modelPreview = selectedModel.clone();
+          modelPreview.traverse(child => {
+            if (child.material) {
+              child.material = child.material.clone();
+              child.material.transparent = true;
+              child.material.opacity = 0.5;
+            }
+          });
+          scene.add(modelPreview);
+        }
+        const yOffset = selectedModel.userData.yOffset || 0;
+        modelPreview.position.set(gridPos.x + 0.5, highestY + 0.5 - yOffset, gridPos.z + 0.5);
+        modelPreview.visible = true;
+        placementPreview.visible = false;
+      } else {
+        if (modelPreview) modelPreview.visible = false;
+        placementPreview.visible = true;
+        placementPreview.material.color.set(0x00ff00);
+        placementPreview.position.set(gridPos.x + 0.5, highestY + 0.75, gridPos.z + 0.5);
+      }
+    } else if (document.getElementById('remove-block').classList.contains('active')) {
+      if (modelPreview) modelPreview.visible = false;
+      const key = `${gridPos.x},${highestY},${gridPos.z}`;
+      if (gridBlocks[key]) {
+        placementPreview.visible = true;
+        placementPreview.material.color.set(0xff0000);
+        placementPreview.position.set(gridPos.x + 0.5, highestY + 0.25, gridPos.z + 0.5);
+      } else {
+        placementPreview.visible = false;
+      }
+    } else {
+      if (placementPreview) placementPreview.visible = false;
+      if (modelPreview) modelPreview.visible = false;
+    }
+  } else {
+    debugInfo.raycastHit = null;
+    debugInfo.gridPosition = null;
+    if (placementPreview) placementPreview.visible = false;
+    if (modelPreview) modelPreview.visible = false;
+  }
+  updateDebugInfo();
+}
+function onMouseClick(event) {
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects([groundPlane, ...Object.values(gridBlocks)], true);
+  if (intersects.length > 0) {
+    const intersect = intersects[0];
+    const gridPos = getGridPosition(intersect.point);
+    const highestY = getHighestBlockAt(gridPos.x, gridPos.z);
+    if (document.getElementById('place-block').classList.contains('active')) {
+      if (selectedModel) {
+        const clone = selectedModel.clone();
+        const yOffset = selectedModel.userData.yOffset || 0;
+        clone.position.set(gridPos.x + 0.5, highestY + 0.5 - yOffset, gridPos.z + 0.5);
+        scene.add(clone);
+        const assetId = assetIdCounter++;
+        const assetData = {
+          id: assetId,
+          model: clone,
+          position: clone.position.clone(),
+          url: selectedModel.userData.url,
+          name: selectedModel.userData.name
+        };
+        placedAssets.push(assetData);
+        addPlacedAssetToList(assetData);
+        debugInfo.lastAction = `Placed model at ${clone.position.toArray()}`;
+        addActionToHistory(debugInfo.lastAction, {
+          type: 'placeAsset',
+          assetData: {
+            id: assetData.id,
+            url: assetData.url,
+            name: assetData.name,
+            position: {
+              x: clone.position.x,
+              y: clone.position.y,
+              z: clone.position.z
+            },
+            rotation: {
+              x: clone.rotation.x,
+              y: clone.rotation.y,
+              z: clone.rotation.z
+            },
+            scale: {
+              x: clone.scale.x,
+              y: clone.scale.y,
+              z: clone.scale.z
+            }
+          }
+        });
+      } else {
+        const key = `${gridPos.x},${highestY + 0.5},${gridPos.z}`;
+        if (!gridBlocks[key]) {
+          const block = addBlock(new THREE.Vector3(gridPos.x, highestY + 0.5, gridPos.z));
+          gridBlocks[key] = block;
+          updateBlocksList();
+          debugInfo.lastAction = `Placed block at ${key}`;
+          addActionToHistory(debugInfo.lastAction, {
+            type: 'placeBlock',
+            key: key,
+            position: {
+              x: gridPos.x,
+              y: highestY + 0.5,
+              z: gridPos.z
+            }
+          });
+        }
+      }
+    } else if (document.getElementById('remove-block').classList.contains('active')) {
+      const topBlockKey = `${gridPos.x},${highestY},${gridPos.z}`;
+      if (gridBlocks[topBlockKey]) {
+        const block = gridBlocks[topBlockKey];
+        removeBlock(topBlockKey);
+        debugInfo.lastAction = `Removed block at ${topBlockKey}`;
+        addActionToHistory(debugInfo.lastAction, {
+          type: 'removeBlock',
+          key: topBlockKey,
+          position: {
+            x: gridPos.x,
+            y: highestY,
+            z: gridPos.z
+          }
+        });
+      }
+    }
+    updateDebugInfo();
+  }
+}
+function addBlock(position) {
+  const geometry = new THREE.BoxGeometry(1, 0.5, 1);
+  const material = new THREE.MeshPhongMaterial({
+    color: document.getElementById('block-color').value
+  });
+  const block = new THREE.Mesh(geometry, material);
+  block.userData.initialColor = material.color.getHexString();
+  const adjustedX = position.x + 0.5;
+  const adjustedZ = position.z + 0.5;
+  block.position.set(adjustedX, position.y + 0.25, adjustedZ);
+  block.userData.key = `${position.x},${position.y},${position.z}`;
+  scene.add(block);
+  if (!selectedBlock) {
+    selectedBlock = block;
+    document.getElementById('block-color').value = '#' + block.material.color.getHexString();
+    updateBlocksList();
+  }
+  return block;
+}
+function removeBlock(key) {
+  scene.children.forEach(child => {
+    if (child.userData.key === key) {
+      scene.remove(child);
+      delete gridBlocks[key];
+      if (selectedBlock && selectedBlock.userData.key === key) {
+        selectedBlock = null;
+      }
+    }
+  });
+  updateBlocksList();
+}
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  if (selectedPlacedAsset && selectedPlacedAsset.helper) {
+    selectedPlacedAsset.helper.update();
+  }
+  renderer.render(scene, camera);
+}
+function addActionToHistory(actionDescription, actionData = {}) {
+  redoHistory = [];
+  document.getElementById('redo-action').disabled = true;
+  let serializableActionData;
+  switch (actionData.type) {
+    case 'placeBlock':
+    case 'removeBlock':
+    case 'placeAsset':
+    case 'deleteAsset':
+    case 'rotateAsset':
+    case 'changeBlockColor':
+      serializableActionData = actionData;
+      break;
+    default:
+      serializableActionData = actionData;
+  }
+  const action = {
+    description: actionDescription,
+    data: serializableActionData
+  };
+  actionHistory.push(action);
+  const actionItem = document.createElement('div');
+  actionItem.textContent = actionDescription;
+  actionHistoryUI.appendChild(actionItem);
+  const historySection = actionHistoryUI.closest('.section-content');
+  if (historySection && historySection.classList.contains('expanded')) {
+    actionItem.scrollIntoView({
+      behavior: 'smooth'
+    });
+  }
+}
+function undoLastAction() {
+  if (actionHistory.length === 0) return;
+  const lastAction = actionHistory.pop();
+  redoHistory.push(lastAction);
+  if (redoHistory.length > MAX_REDO_HISTORY) {
+    redoHistory.shift();
+  }
+  document.getElementById('redo-action').disabled = false;
+  const actionItem = actionHistoryUI.lastChild;
+  if (actionItem) {
+    actionHistoryUI.removeChild(actionItem);
+  }
+  switch (lastAction.data.type) {
+    case 'placeBlock':
+      removeBlock(lastAction.data.key);
+      updateBlocksList();
+      break;
+    case 'removeBlock':
+      const position = lastAction.data.position;
+      const key = lastAction.data.key;
+      const block = addBlock(new THREE.Vector3(position.x, position.y, position.z));
+      gridBlocks[key] = block;
+      updateBlocksList();
+      break;
+    case 'changeBlockColor':
+      if (lastAction.data.block && gridBlocks[lastAction.data.key]) {
+        const block = gridBlocks[lastAction.data.key];
+        block.material.color.set('#' + lastAction.data.previousColor);
+        if (selectedBlock === block) {
+          document.getElementById('block-color').value = '#' + lastAction.data.previousColor;
+        }
+        debugInfo.lastAction = `Undid color change of block at ${lastAction.data.key}`;
+      }
+      break;
+    case 'placeAsset':
+      deletePlacedAsset(lastAction.data.assetData.id, false);
+      break;
+    case 'deleteAsset':
+      const assetData = lastAction.data.assetData;
+      loader.load(assetData.url, gltf => {
+        const model = gltf.scene;
+        model.position.set(assetData.position.x, assetData.position.y, assetData.position.z);
+        model.rotation.set(assetData.rotation.x, assetData.rotation.y, assetData.rotation.z);
+        model.scale.set(assetData.scale.x, assetData.scale.y, assetData.scale.z);
+        model.userData.url = assetData.url;
+        model.userData.name = assetData.name;
+        scene.add(model);
+        const asset = {
+          id: assetData.id,
+          model: model,
+          position: model.position.clone(),
+          url: assetData.url,
+          name: assetData.name
+        };
+        placedAssets.push(asset);
+        addPlacedAssetToList(asset);
+        debugInfo.lastAction = `Undid deleting asset ${asset.id}`;
+        updateDebugInfo();
+      });
+      break;
+    case 'rotateAsset':
+      const asset = getPlacedAssetById(lastAction.data.assetId);
+      if (asset) {
+        asset.model.rotation.y = lastAction.data.previousRotation;
+        if (asset.helper) {
+          asset.helper.update();
+        }
+        debugInfo.lastAction = `Undid rotating asset ${asset.id}`;
+      }
+      break;
+    default:
+      debugInfo.lastAction = `Undid action: ${lastAction.description}`;
+  }
+  updateDebugInfo();
+}
+function redoLastAction() {
+  if (redoHistory.length === 0) return;
+  const actionToRedo = redoHistory.pop();
+  document.getElementById('redo-action').disabled = redoHistory.length === 0;
+  switch (actionToRedo.data.type) {
+    case 'placeBlock':
+      const block = addBlock(new THREE.Vector3(actionToRedo.data.position.x, actionToRedo.data.position.y, actionToRedo.data.position.z));
+      gridBlocks[actionToRedo.data.key] = block;
+      updateBlocksList();
+      break;
+    case 'removeBlock':
+      removeBlock(actionToRedo.data.key);
+      updateBlocksList();
+      break;
+    case 'changeBlockColor':
+      if (actionToRedo.data.key && gridBlocks[actionToRedo.data.key]) {
+        const block = gridBlocks[actionToRedo.data.key];
+        block.material.color.set('#' + actionToRedo.data.newColor);
+        if (selectedBlock === block) {
+          document.getElementById('block-color').value = '#' + actionToRedo.data.newColor;
+        }
+      }
+      break;
+    case 'placeAsset':
+      const asset = actionToRedo.data.assetData;
+      const clone = asset.model.clone();
+      clone.position.set(asset.position.x, asset.position.y, asset.position.z);
+      clone.rotation.set(asset.rotation.x, asset.rotation.y, asset.rotation.z);
+      clone.scale.set(asset.scale.x, asset.scale.y, asset.scale.z);
+      scene.add(clone);
+      const newAsset = {
+        id: asset.id,
+        model: clone,
+        position: clone.position.clone(),
+        url: asset.url,
+        name: asset.name
+      };
+      placedAssets.push(newAsset);
+      addPlacedAssetToList(newAsset);
+      break;
+    default:
+      console.log('Unknown action type:', actionToRedo.data.type);
+  }
+  actionHistory.push(actionToRedo);
+  const actionItem = document.createElement('div');
+  actionItem.textContent = actionToRedo.description;
+  actionHistoryUI.appendChild(actionItem);
+  debugInfo.lastAction = `Redid: ${actionToRedo.description}`;
+  updateDebugInfo();
+}
+function updateBlocksList() {
+  if (selectedBlock) {
+    initialBlockColor = null;
+  }
+  const blocksList = document.getElementById('placed-blocks-list');
+  const scrollTop = blocksList.scrollTop;
+  blocksList.innerHTML = '';
+  Object.entries(gridBlocks).forEach(([key, block]) => {
+    const blockItem = document.createElement('div');
+    blockItem.className = 'block-item';
+    if (selectedBlock && selectedBlock.userData.key === key) {
+      blockItem.classList.add('selected-block');
+    }
+    const [x, y, z] = key.split(',').map(Number);
+    blockItem.textContent = `Block at (${x}, ${y}, ${z})`;
+    blockItem.addEventListener('click', () => {
+      if (selectedBlock) {
+        selectedBlock = null;
+      }
+      selectedBlock = block;
+      document.getElementById('block-color').value = '#' + selectedBlock.material.color.getHexString();
+      updateBlocksList();
+    });
+    blocksList.appendChild(blockItem);
+  });
+  blocksList.scrollTop = scrollTop;
+}
+function initDraggableSections() {
+  document.querySelectorAll('.toolbar-section').forEach(section => {
+    if (section && section.parentNode) {
+      section.replaceWith(...section.childNodes);
+    }
+  });
+  document.querySelectorAll('.section-header').forEach(header => {
+    const content = header.nextElementSibling;
+    if (!content || !header.parentNode) return;
+    const section = document.createElement('div');
+    section.className = 'toolbar-section';
+    if (!header.parentNode.classList.contains('toolbar-section')) {
+      header.parentNode.insertBefore(section, header);
+      section.appendChild(header);
+      section.appendChild(content);
+    }
+    let isDragging = false;
+    let startY = 0;
+    let initialRect = null;
+    let placeholder = null;
+    header.addEventListener('mousedown', e => {
+      if (e.target.classList.contains('section-toggle')) return;
+      e.preventDefault();
+      isDragging = true;
+      startY = e.clientY;
+      initialRect = section.getBoundingClientRect();
+      section.classList.add('dragging');
+      section.style.width = `${initialRect.width}px`;
+      section.style.left = `${initialRect.left}px`;
+      section.style.top = `${initialRect.top}px`;
+      placeholder = document.createElement('div');
+      placeholder.style.height = `${initialRect.height}px`;
+      placeholder.style.margin = '5px 0';
+      placeholder.style.background = 'rgba(100,100,100,0.2)';
+      placeholder.style.borderRadius = '4px';
+      if (section.parentNode) {
+        section.parentNode.insertBefore(placeholder, section);
+      }
+      document.body.style.cursor = 'grabbing';
+    });
+    document.addEventListener('mousemove', e => {
+      if (!isDragging || !section.parentNode) return;
+      const deltaY = e.clientY - startY;
+      section.style.transform = `translateY(${deltaY}px)`;
+      const draggingRect = section.getBoundingClientRect();
+      const draggingCenter = draggingRect.top + draggingRect.height / 2;
+      document.querySelectorAll('.drop-target').forEach(s => s.classList.remove('drop-target'));
+      const otherSections = Array.from(document.querySelectorAll('.toolbar-section')).filter(s => s !== section);
+      let dropTarget = null;
+      for (const otherSection of otherSections) {
+        const rect = otherSection.getBoundingClientRect();
+        if (draggingCenter > rect.top && draggingCenter < rect.bottom) {
+          dropTarget = otherSection;
+          break;
+        }
+      }
+      if (dropTarget && placeholder && placeholder.parentNode) {
+        dropTarget.classList.add('drop-target');
+        const rect = dropTarget.getBoundingClientRect();
+        if (draggingCenter < rect.top + rect.height / 2) {
+          dropTarget.parentNode.insertBefore(placeholder, dropTarget);
+        } else {
+          dropTarget.parentNode.insertBefore(placeholder, dropTarget.nextSibling);
+        }
+      }
+    });
+    document.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      section.classList.remove('dragging');
+      section.style.transform = '';
+      section.style.position = '';
+      section.style.width = '';
+      section.style.left = '';
+      section.style.top = '';
+      if (placeholder && placeholder.parentNode && section.parentNode) {
+        placeholder.parentNode.insertBefore(section, placeholder);
+        placeholder.remove();
+      }
+      document.querySelectorAll('.drop-target').forEach(s => s.classList.remove('drop-target'));
+      document.body.style.cursor = '';
+    });
+  });
+}
+document.querySelectorAll('.tool-button').forEach(button => {
+  button.addEventListener('click', () => {
+    if (button.id !== 'undo-action') {
+      document.querySelectorAll('.tool-button').forEach(b => b.classList.remove('active'));
+      button.classList.add('active');
+      if (button.id !== 'place-block') {
+        selectedModel = null;
+        if (modelPreview) {
+          scene.remove(modelPreview);
+          modelPreview = null;
+        }
+      }
+      if (selectedPlacedAsset) {
+        deselectPlacedAsset();
+      }
+    }
+  });
+});
+document.getElementById('export-json').addEventListener('click', exportLevel);
+document.getElementById('import-json').addEventListener('click', () => {
+  document.getElementById('import-input').click();
+});
+document.getElementById('import-input').addEventListener('change', event => {
+  if (event.target.files.length > 0) {
+    importLevel(event.target.files[0]);
+    event.target.value = '';
+  }
+});
+document.getElementById('load-model').addEventListener('click', () => {
+  document.getElementById('model-input').click();
+});
+document.getElementById('model-input').addEventListener('change', event => {
+  if (event.target.files.length > 0) {
+    loadModel(event.target.files[0]);
+    event.target.value = '';
+  }
+});
+document.getElementById('undo-action').addEventListener('click', undoLastAction);
+document.getElementById('redo-action').addEventListener('click', redoLastAction);
+window.addEventListener('keydown', event => {
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedPlacedAsset) {
+    deletePlacedAsset(selectedPlacedAsset.id, true);
+  }
+  if (event.key === '`') {
+    const debugConsole = document.getElementById('debug-console');
+    debugConsole.classList.toggle('visible');
+  }
+  if (event.ctrlKey || event.metaKey) {
+    if (event.key === 'z') {
+      if (event.shiftKey) {
+        redoLastAction();
+      } else {
+        undoLastAction();
+      }
+      event.preventDefault();
+    }
+  }
+});
+document.getElementById('toggle-menu').addEventListener('click', () => {
+  const toolbar = document.getElementById('toolbar');
+  const toggleButton = document.getElementById('toggle-menu');
+  const arrow = toggleButton.querySelector('.menu-arrow');
+  toolbar.classList.toggle('hidden');
+  toggleButton.classList.toggle('menu-hidden');
+  arrow.classList.toggle('collapsed');
+});
+document.addEventListener('mouseleave', () => {
+  const draggingSection = document.querySelector('.toolbar-section.dragging');
+  if (draggingSection) {
+    draggingSection.classList.remove('dragging');
+    draggingSection.style.transform = '';
+    draggingSection.style.position = '';
+    draggingSection.style.width = '';
+    draggingSection.style.left = '';
+    draggingSection.style.top = '';
+  }
+  const placeholder = document.querySelector('.section-placeholder');
+  if (placeholder) {
+    placeholder.remove();
+  }
+  document.querySelectorAll('.drop-target').forEach(s => s.classList.remove('drop-target'));
+  document.body.style.cursor = '';
+});
+document.getElementById('block-color').removeEventListener('input', e => {
+  if (selectedBlock) {
+    const previousColor = selectedBlock.material.color.getHexString();
+    selectedBlock.material.color.set(e.target.value);
+    debugInfo.lastAction = `Changed block color at ${selectedBlock.userData.key}`;
+    addActionToHistory(debugInfo.lastAction, {
+      type: 'changeBlockColor',
+      block: selectedBlock,
+      key: selectedBlock.userData.key,
+      previousColor: previousColor,
+      newColor: e.target.value.substring(1)
+    });
+    updateDebugInfo();
+  }
+});
+document.getElementById('block-color').addEventListener('input', e => {
+  if (selectedBlock) {
+    if (initialBlockColor === null) {
+      initialBlockColor = selectedBlock.material.color.getHexString();
+    }
+    selectedBlock.material.color.set(e.target.value);
+  }
+});
+document.getElementById('block-color').addEventListener('change', e => {
+  if (selectedBlock && initialBlockColor !== null) {
+    debugInfo.lastAction = `Changed block color at ${selectedBlock.userData.key}`;
+    addActionToHistory(debugInfo.lastAction, {
+      type: 'changeBlockColor',
+      block: selectedBlock,
+      key: selectedBlock.userData.key,
+      previousColor: initialBlockColor,
+      newColor: e.target.value.substring(1)
+    });
+    initialBlockColor = null;
+    updateDebugInfo();
+  }
+});
+initDraggableSections();
+init();
+animate();</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
